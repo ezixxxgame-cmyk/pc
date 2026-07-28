@@ -1,0 +1,5 @@
+allowBuilds:
+  sharp: true
+confirmModulesPurge: false
+nodeLinker: hoisted
+verifyDepsBeforeRun: false
