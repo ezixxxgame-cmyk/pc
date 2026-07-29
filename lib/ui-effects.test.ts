@@ -25,4 +25,3 @@ test("mobile monitor keeps a landscape aspect ratio", () => {
     /@media \(max-width: 640px\)[\s\S]*?\.monitor-screen\s*\{[\s\S]*?aspect-ratio:\s*16\s*\/\s*10/,
   );
 });
-
