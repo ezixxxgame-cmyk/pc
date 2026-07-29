@@ -144,6 +144,7 @@ export default function Home() {
   const [submitted, setSubmitted] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
   const monitorScrollRef = useRef<HTMLDivElement>(null);
+  const particleCanvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -183,6 +184,115 @@ export default function Home() {
     return () => window.removeEventListener("pointermove", move);
   }, []);
 
+  useEffect(() => {
+    const canvas = particleCanvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+
+    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const pointer = { x: 0, y: 0, active: false };
+    let frame = 0;
+    let visible = !document.hidden;
+    let width = 0;
+    let height = 0;
+    let particles: Array<{ x: number; y: number; vx: number; vy: number; size: number }> = [];
+
+    const draw = () => {
+      context.clearRect(0, 0, width, height);
+
+      particles.forEach((particle, index) => {
+        if (!motionQuery.matches) {
+          if (pointer.active) {
+            const dx = particle.x - pointer.x;
+            const dy = particle.y - pointer.y;
+            const distance = Math.hypot(dx, dy);
+            if (distance > 0 && distance < 130) {
+              const force = (130 - distance) / 130;
+              particle.x += (dx / distance) * force * 1.8;
+              particle.y += (dy / distance) * force * 1.8;
+            }
+          }
+
+          particle.x += particle.vx;
+          particle.y += particle.vy;
+          if (particle.x < 0 || particle.x > width) particle.vx *= -1;
+          if (particle.y < 0 || particle.y > height) particle.vy *= -1;
+        }
+
+        for (let next = index + 1; next < particles.length; next += 1) {
+          const other = particles[next];
+          const distance = Math.hypot(particle.x - other.x, particle.y - other.y);
+          if (distance < 145) {
+            context.beginPath();
+            context.moveTo(particle.x, particle.y);
+            context.lineTo(other.x, other.y);
+            context.strokeStyle = `rgba(167, 139, 250, ${(1 - distance / 145) * 0.24})`;
+            context.stroke();
+          }
+        }
+
+        context.beginPath();
+        context.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        context.fillStyle = "rgba(196, 181, 253, 0.72)";
+        context.fill();
+      });
+
+      if (!motionQuery.matches && visible) frame = window.requestAnimationFrame(draw);
+    };
+
+    const resize = () => {
+      const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+      const count = Math.min(64, Math.max(24, Math.round((width * height) / 20000)));
+      particles = Array.from({ length: count }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 0.22,
+        vy: (Math.random() - 0.5) * 0.22,
+        size: Math.random() * 1.35 + 0.65,
+      }));
+      window.cancelAnimationFrame(frame);
+      draw();
+    };
+
+    const movePointer = (event: PointerEvent) => {
+      pointer.x = event.clientX;
+      pointer.y = event.clientY;
+      pointer.active = true;
+    };
+
+    const leavePointer = () => {
+      pointer.active = false;
+    };
+
+    const restart = () => {
+      visible = !document.hidden;
+      window.cancelAnimationFrame(frame);
+      draw();
+    };
+
+    resize();
+    motionQuery.addEventListener("change", restart);
+    document.addEventListener("visibilitychange", restart);
+    window.addEventListener("resize", resize);
+    window.addEventListener("pointermove", movePointer, { passive: true });
+    window.addEventListener("pointerout", leavePointer);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      motionQuery.removeEventListener("change", restart);
+      document.removeEventListener("visibilitychange", restart);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("pointermove", movePointer);
+      window.removeEventListener("pointerout", leavePointer);
+    };
+  }, []);
+
   function selectTariff(name: string) {
     setBooking((current) => ({ ...current, zone: name }));
     requestAnimationFrame(() => {
@@ -209,6 +319,7 @@ export default function Home() {
     <>
       <div className="cursor-dot" aria-hidden="true" />
       <div className="cursor-ring" aria-hidden="true" />
+      <canvas ref={particleCanvasRef} className="site-particles" aria-hidden="true" />
 
       <header className="site-header">
         <a className="brand" href="#top" aria-label="ProGaming — наверх">
@@ -371,11 +482,18 @@ export default function Home() {
                       </div>
                       <div className="form-submit">
                         <p>Оплата в клубе: картой или наличными</p>
-                        <button type="submit">Оставить заявку</button>
+                        <button className="shiny-submit" type="submit">
+                          <span>Оставить заявку</span>
+                        </button>
                       </div>
                     </form>
                   </section>
                 </div>
+              </div>
+              <div className="monitor-detail" aria-hidden="true">
+                <span>PROGAMING // 360 HZ</span>
+                <i />
+                <b>PWR</b>
               </div>
             </div>
             <div className="monitor-neck" aria-hidden="true" />
@@ -516,3 +634,4 @@ export default function Home() {
     </>
   );
 }
+
